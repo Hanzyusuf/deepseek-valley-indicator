@@ -1,33 +1,37 @@
-# Valley Status Indicator - README
+# DeepSeek Valley Indicator
 
-A lightweight system tray indicator for XFCE that shows time-based status (VALLEY/NORMAL) with timezone support.
+> A lightweight system tray indicator for XFCE that shows when DeepSeek's "valley" periods are active to help you avoid wasting tokens.
+
+**Since DeepSeek introduced valley timing with increased rates during peak hours, this simple indicator helps you track when to avoid using tokens and when it's safe to proceed.**
+
+[![GitHub](https://img.shields.io/badge/GitHub-Hanzyusuf/deepseek--valley--indicator-blue?logo=github)](https://github.com/Hanzyusuf/deepseek-valley-indicator.git)
 
 ## Features
 
 - 🔴/🟢 Visual status indicator in system tray
-- 🕐 Automatic timezone conversion
+- 🕐 Automatic timezone conversion (UTC to local)
 - 📅 12-hour time format
 - ⏱️ Real-time remaining time display
 - 🔄 Auto-updates every 30 seconds
 - 🚀 Auto-starts on login
 - ✏️ Edit schedule directly from menu
+- 🪶 Lightweight (~15-25 MB RAM)
+
+## Why This Exists
+
+DeepSeek introduced **valley timing** where token usage costs more during peak hours. This indicator helps you:
+
+- **Avoid wasting tokens** during VALLEY periods (🔴)
+- **Use tokens safely** during NORMAL periods (🟢)
+- **Plan ahead** by showing when the next VALLEY period starts
 
 ## Quick Installation
 
-### 1. Clone or download files
+### 1. Clone the repository
 
 ```bash
-# Create directory
-mkdir -p ~/valley-indicator
-cd ~/valley-indicator
-
-# Download all files (or copy them manually)
-# Files needed:
-# - valley_indicator.py
-# - scheduler.py
-# - schedules.json
-# - run_indicator.sh
-# - install.sh
+git clone https://github.com/Hanzyusuf/deepseek-valley-indicator.git
+cd deepseek-valley-indicator
 ```
 
 ### 2. Run installation
@@ -47,151 +51,27 @@ chmod +x install.sh
 
 Right-click on panel → **Panel Preferences** → **Items** → **Add** → **Status Tray**
 
-## Complete Installation Steps
-
-### Option A: Using the installer (Recommended)
-
-```bash
-# 1. Create directory and copy files
-mkdir -p ~/valley-indicator
-cd ~/valley-indicator
-
-# 2. Copy all files to this directory
-# (valley_indicator.py, scheduler.py, schedules.json, 
-#  run_indicator.sh, install.sh)
-
-# 3. Make executable and install
-chmod +x *.sh *.py
-./install.sh
-
-# 4. Start the indicator
-~/.local/share/valley-indicator/run_indicator.sh
-```
-
-### Option B: Manual installation
-
-```bash
-# 1. Copy files to installation directory
-mkdir -p ~/.local/share/valley-indicator
-cp valley_indicator.py scheduler.py schedules.json run_indicator.sh ~/.local/share/valley-indicator/
-chmod +x ~/.local/share/valley-indicator/*.py ~/.local/share/valley-indicator/*.sh
-
-# 2. Create desktop entry for autostart
-mkdir -p ~/.local/share/applications
-cat > ~/.local/share/applications/valley-indicator.desktop << 'EOF'
-[Desktop Entry]
-Name=Valley Status Indicator
-Comment=Time-based status indicator for XFCE panel
-Exec=/home/$USER/.local/share/valley-indicator/run_indicator.sh
-Icon=applications-system
-Terminal=false
-Type=Application
-StartupNotify=true
-X-GNOME-Autostart-enabled=true
-EOF
-
-# 3. Enable autostart
-mkdir -p ~/.config/autostart
-cp ~/.local/share/applications/valley-indicator.desktop ~/.config/autostart/
-```
-
-## Usage
-
-### Starting the indicator
-
-```bash
-# Start in background
-~/.local/share/valley-indicator/run_indicator.sh
-
-# Check if running
-ps aux | grep valley_indicator.py
-```
-
-### Stopping the indicator
-
-```bash
-# Kill the process
-pkill -f valley_indicator.py
-
-# Or find and kill by PID
-ps aux | grep valley_indicator.py
-kill <PID>
-```
-
-### Restarting
-
-```bash
-# Stop and start
-pkill -f valley_indicator.py && ~/.local/share/valley-indicator/run_indicator.sh
-```
-
-### Viewing logs
-
-```bash
-# View full log
-cat ~/.cache/valley-indicator/indicator.log
-
-# Follow log (live)
-tail -f ~/.cache/valley-indicator/indicator.log
-
-# View last 20 lines
-tail -20 ~/.cache/valley-indicator/indicator.log
-```
-
-### Checking status
-
-```bash
-# Check if running
-ps aux | grep valley_indicator.py | grep -v grep
-
-# Check current status
-~/.local/share/valley-indicator/scheduler.py
-```
-
-## How to Use
-
-### Left-click on icon
-Shows detailed status dialog with:
-- Current state (VALLEY/NORMAL)
-- Status message
-- Remaining time
-- Next window
-- Timezone info
-- Local time
-
-### Right-click on icon
-Menu options:
-- **Show Details** - Same as left-click
-- **Edit Schedule** - Opens `schedules.json` in default editor
-- **Open Schedule Folder** - Opens folder containing schedule file
-- **Refresh** - Manually update status
-- **Quit** - Stop the indicator
-
-### Hover over icon
-Tooltip shows quick status information
-
 ## Configuration
 
 ### Editing schedules
 
-1. Right-click the icon → **Edit Schedule**
-2. Or edit manually:
-```bash
-nano ~/.local/share/valley-indicator/schedules.json
-```
+The schedule is stored in `schedules.json`. You can edit it:
+
+- Right-click the icon → **Edit Schedule**
+- Or manually: `nano ~/.local/share/valley-indicator/schedules.json`
 
 ### Schedule format
 
 ```json
 {
-  "timezone": "America/New_York",
+  "timezone": "UTC",
   "periods": [
     {
       "name": "VALLEY",
       "type": "peak",
-      "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
-      "start": "09:00 AM",
-      "end": "10:30 AM",
+      "days": ["all"],
+      "start": "10:30 PM",
+      "end": "03:00 AM",
       "message": "🔴 Peak hour - Avoid tokens"
     },
     {
@@ -207,138 +87,123 @@ nano ~/.local/share/valley-indicator/schedules.json
 }
 ```
 
-### Available timezones
+### Periods crossing midnight
 
-Common timezones:
-- `America/New_York` (EST/EDT)
-- `America/Chicago` (CST/CDT)
-- `America/Denver` (MST/MDT)
-- `America/Los_Angeles` (PST/PDT)
-- `Europe/London` (GMT/BST)
-- `Europe/Paris` (CET/CEST)
-- `Asia/Kolkata` (IST)
-- `Asia/Tokyo` (JST)
-- `Australia/Sydney` (AEST/AEDT)
-- `UTC` (Coordinated Universal Time)
+The app handles periods that cross midnight automatically. For example:
+- `10:30 PM` to `03:00 AM` is treated as a single continuous VALLEY period
+- No confusing "Ends at 11:59 PM" then "Starts at 12:00 AM" messages
 
-## Reinstallation
+## Usage
+
+### Left-click on icon
+Shows detailed status dialog with:
+- Current state (VALLEY/NORMAL)
+- Remaining time (VALLEY remaining or time until next VALLEY)
+- Next VALLEY window with "Today/Tomorrow" based on local time
+- Status message
+
+### Right-click on icon
+Menu options:
+- **📊 Details** - Same as left-click
+- **🔄 Refresh** - Manually update status
+- **✏️ Edit Schedule** - Opens `schedules.json` in default editor
+- **🚪 Quit** - Stop the indicator
+
+### Hover over icon
+Tooltip shows quick status information
+
+## Commands
 
 ```bash
-# 1. Uninstall old version
-rm -rf ~/.local/share/valley-indicator
-rm -f ~/.valley_indicator.lock
-rm -f ~/.local/share/applications/valley-indicator.desktop
-rm -f ~/.config/autostart/valley-indicator.desktop
-rm -rf ~/.cache/valley-indicator
+# Start (background)
+~/.local/share/valley-indicator/run_indicator.sh
 
-# 2. Kill any running instances
-pkill -f valley_indicator.py
+# Stop
+~/.local/share/valley-indicator/stop_indicator.sh
 
-# 3. Reinstall (follow installation steps above)
+# Check status
+~/.local/share/valley-indicator/status.sh
+
+# View logs
+tail -f ~/.cache/valley-indicator/indicator.log
+
+# Test scheduler
+~/.local/share/valley-indicator/scheduler.py
 ```
+
+## Resource Usage
+
+| Resource | Usage |
+|----------|-------|
+| **Memory** | ~15-25 MB |
+| **CPU** | ~0% (idle), ~1-3% (updating) |
+| **Disk** | ~15 KB (script) |
 
 ## Troubleshooting
 
 ### Icon doesn't appear
-
 1. Add Status Tray to panel:
    - Right-click panel → **Panel Preferences** → **Items** → **Add** → **Status Tray**
-   
-2. Restart the panel:
-```bash
-xfce4-panel -r
-```
-
-3. Check if running:
-```bash
-ps aux | grep valley_indicator.py
-```
+2. Restart panel: `xfce4-panel -r`
+3. Check if running: `ps aux | grep valley_indicator.py`
 
 ### Indicator not updating
+1. Check logs: `tail -f ~/.cache/valley-indicator/indicator.log`
+2. Right-click icon → **Refresh**
+3. Restart: `./stop_indicator.sh && ./run_indicator.sh`
 
-1. Check logs:
-```bash
-tail -f ~/.cache/valley-indicator/indicator.log
-```
-
-2. Manually refresh:
-   - Right-click icon → **Refresh**
-
-3. Restart the indicator:
-```bash
-pkill -f valley_indicator.py && ~/.local/share/valley-indicator/run_indicator.sh
-```
-
-### Permission errors
-
-Make scripts executable:
-```bash
-chmod +x ~/.local/share/valley-indicator/*.py
-chmod +x ~/.local/share/valley-indicator/*.sh
-```
-
-### Python errors
-
-Check Python version (needs 3.9+):
-```bash
-python3 --version
-```
-
-Install missing dependencies:
-```bash
-sudo apt install python3 python3-gi python3-gi-cairo gir1.2-gtk-3.0
-```
-
-## Files
-
-| File | Location | Purpose |
-|------|----------|---------|
-| `valley_indicator.py` | `~/.local/share/valley-indicator/` | Main application |
-| `scheduler.py` | `~/.local/share/valley-indicator/` | Status calculation |
-| `schedules.json` | `~/.local/share/valley-indicator/` | Time period configuration |
-| `run_indicator.sh` | `~/.local/share/valley-indicator/` | Launcher script |
-| `valley-indicator.desktop` | `~/.local/share/applications/` | Desktop entry |
-| `valley-indicator.desktop` | `~/.config/autostart/` | Autostart entry |
-| `indicator.log` | `~/.cache/valley-indicator/` | Log file |
+### Timezone issues
+The app uses Python's `zoneinfo` (built-in Python 3.9+) to handle timezone conversion:
+- Schedule times are stored in UTC
+- Automatically converted to your local timezone
+- Works anywhere in the world
 
 ## Uninstallation
 
 ```bash
-# 1. Stop the process
+# Stop the process
 pkill -f valley_indicator.py
 
-# 2. Remove all files
+# Remove all files
 rm -rf ~/.local/share/valley-indicator
 rm -f ~/.valley_indicator.lock
 rm -f ~/.local/share/applications/valley-indicator.desktop
 rm -f ~/.config/autostart/valley-indicator.desktop
 rm -rf ~/.cache/valley-indicator
-
-# 3. (Optional) Remove from panel
-# Right-click panel → Panel Preferences → Items → Remove Status Tray
 ```
 
-## Notes
+## Requirements
 
-- The indicator automatically starts on login
-- Updates every 30 seconds
-- Uses Python's built-in `zoneinfo` (Python 3.9+)
-- No external Python packages required
-- Lightweight (~15-25 MB RAM)
+- **Python 3.9+** (for `zoneinfo` support)
+- **XFCE** (or any desktop with systray support)
+- **GTK3** (`python3-gi`, `gir1.2-gtk-3.0`)
 
-## Support
+## How It Works
 
-For issues:
-1. Check logs: `tail -f ~/.cache/valley-indicator/indicator.log`
-2. Check if running: `ps aux | grep valley_indicator.py`
-3. Verify schedule: `~/.local/share/valley-indicator/scheduler.py`
+1. **Schedule stored in UTC** in `schedules.json`
+2. **Detects your local timezone** from system settings
+3. **Converts UTC times to local** for display
+4. **Checks current time** against schedule
+5. **Shows status** in system tray with colored indicators
+6. **Updates every 30 seconds** automatically
 
-## Save this as README.md in your project folder:
+## Why UTC?
 
-```bash
-cd ~/valley-indicator
-nano README.md
-# Paste the above content
-```
+- **Consistent** regardless of where you are
+- **Works for teams** in different timezones
+- **Travel-friendly** - no need to adjust schedule
 
-Now you have complete documentation for installation, usage, and troubleshooting!
+## Repository
+
+GitHub: [https://github.com/Hanzyusuf/deepseek-valley-indicator.git](https://github.com/Hanzyusuf/deepseek-valley-indicator.git)
+
+## License
+
+MIT
+
+## Contributing
+
+Issues and pull requests welcome! Please ensure:
+- Code works with Python 3.9+
+- No external dependencies beyond GTK3
+- Timezone handling remains robust
