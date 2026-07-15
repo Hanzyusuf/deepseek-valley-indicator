@@ -1,0 +1,30 @@
+{
+  "timezone": "America/New_York",
+  "periods": [
+    {
+      "name": "VALLEY",
+      "type": "peak",
+      "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+      "start": "09:00 AM",
+      "end": "10:30 AM",
+      "message": "🔴 Peak hour - Avoid tokens"
+    },
+    {
+      "name": "VALLEY",
+      "type": "peak",
+      "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
+      "start": "02:00 PM",
+      "end": "03:30 PM",
+      "message": "🔴 Peak hour - Avoid tokens"
+    },
+    {
+      "name": "NORMAL",
+      "type": "safe",
+      "days": ["all"],
+      "start": "12:00 AM",
+      "end": "11:59 PM",
+      "message": "🟢 Normal - Safe to proceed",
+      "default": true
+    }
+  ]
+}
