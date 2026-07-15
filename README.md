@@ -6,6 +6,12 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-Hanzyusuf/deepseek--valley--indicator-blue?logo=github)](https://github.com/Hanzyusuf/deepseek-valley-indicator.git)
 
+## Demo
+
+![Valley Indicator Demo](demo.jpg)
+
+*System tray icon showing VALLEY (🔴) and NORMAL (🟢) states with status dialog*
+
 ## Features
 
 - 🔴/🟢 Visual status indicator in system tray
