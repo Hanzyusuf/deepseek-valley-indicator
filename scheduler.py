@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-Scheduler using zoneinfo (Python 3.9+) - No external dependencies.
-Reads time periods from JSON with timezone support
-Converts to local timezone automatically
+Scheduler using zoneinfo - Proper UTC to Local conversion
 """
 
 import json
@@ -27,12 +25,11 @@ class ScheduleManager:
             self.timezone_str = data.get('timezone', 'UTC')
             self.periods = data.get('periods', [])
             
-            # Validate and parse periods
+            # Parse periods
             self.parsed_periods = []
             default_period = None
             
             for period in self.periods:
-                # Parse days
                 days = period.get('days', [])
                 if 'all' in days:
                     days = ['monday', 'tuesday', 'wednesday', 'thursday', 
@@ -57,18 +54,16 @@ class ScheduleManager:
                 if parsed['is_default']:
                     default_period = parsed
             
-            # Set default period if not specified
             if not default_period and self.parsed_periods:
                 self.parsed_periods[0]['is_default'] = True
                 
         except Exception as e:
             print(f"Error loading schedule: {e}", file=sys.stderr)
-            # Fallback to default periods
             self.parsed_periods = self.get_default_periods()
             self.timezone_str = 'UTC'
     
     def get_default_periods(self):
-        """Fallback default periods if JSON fails"""
+        """Fallback default periods"""
         return [
             {
                 'name': 'VALLEY',
@@ -92,90 +87,166 @@ class ScheduleManager:
         ]
     
     def get_local_timezone(self):
-        """Get the system's local timezone"""
+        """Get system local timezone"""
         try:
-            # Read from /etc/timezone (Linux)
             with open('/etc/timezone', 'r') as f:
                 return f.read().strip()
         except:
             try:
-                # Fallback: use timezone from environment
                 import time
                 return time.tzname[0]
             except:
                 return 'UTC'
     
     def get_current_status(self):
-        """
-        Get current status based on the schedule
-        Returns dict with: indicator, state, message, remaining, next_window
-        """
-        # Get current time in the schedule's timezone
-        try:
-            schedule_tz = ZoneInfo(self.timezone_str)
-            schedule_time = datetime.now(schedule_tz)
-        except Exception as e:
-            print(f"Timezone error: {e}, falling back to UTC", file=sys.stderr)
-            schedule_time = datetime.now(ZoneInfo('UTC'))
+        """Get current status - handles periods crossing midnight"""
+        # Get UTC time
+        utc_tz = ZoneInfo('UTC')
+        utc_now = datetime.now(utc_tz)
+        utc_time = utc_now.time()
+        utc_date = utc_now.date()
         
-        # Convert to local timezone for display
+        # Get local time for display
         local_tz_str = self.get_local_timezone()
         try:
             local_tz = ZoneInfo(local_tz_str)
-            local_time = schedule_time.astimezone(local_tz)
         except:
-            # Fallback to UTC if local timezone fails
-            local_time = schedule_time.astimezone(ZoneInfo('UTC'))
+            local_tz = ZoneInfo('UTC')
+            local_tz_str = 'UTC'
         
-        current_time = local_time.time()
-        current_day = local_time.strftime('%A').lower()
-        current_date = local_time.date()
+        local_now = utc_now.astimezone(local_tz)
+        local_time = local_now.time()
+        local_date = local_now.date()
         
-        # Find matching period
+        # Get day of week in UTC
+        utc_day = utc_now.strftime('%A').lower()
+        
+        # Find matching period using UTC time
         matched_period = None
         
-        # Check each period
         for period in self.parsed_periods:
-            if current_day in period['days']:
-                if period['start'] <= current_time <= period['end']:
-                    matched_period = period
-                    break
+            if utc_day in period['days']:
+                start = period['start']
+                end = period['end']
+                
+                # Check if period crosses midnight
+                if start > end:
+                    # Period crosses midnight (e.g., 10:30 PM to 3:00 AM)
+                    # Current time is in period if: time >= start OR time <= end
+                    if utc_time >= start or utc_time <= end:
+                        matched_period = period
+                        break
+                else:
+                    # Normal period (no midnight crossing)
+                    if start <= utc_time <= end:
+                        matched_period = period
+                        break
         
-        # If no match found, use default
+        # If no match, use default
         if matched_period is None:
             for period in self.parsed_periods:
                 if period.get('is_default', False):
                     matched_period = period
                     break
-            # If still no default, use first period
             if matched_period is None and self.parsed_periods:
                 matched_period = self.parsed_periods[0]
         
         # Calculate remaining time
         remaining = "N/A"
-        if matched_period:
-            end_time = matched_period['end']
-            if current_time <= end_time:
-                remaining_seconds = self.time_to_seconds(end_time) - self.time_to_seconds(current_time)
-                remaining = self.format_time_remaining(remaining_seconds)
+        
+        # Check if current period is VALLEY
+        is_valley = matched_period['type'] == 'peak'
+        start = matched_period['start']
+        end = matched_period['end']
+        crosses_midnight = start > end
+        
+        if is_valley:
+            if crosses_midnight:
+                # Period crosses midnight
+                if utc_time >= start:
+                    # Time is in the first part (e.g., 10:30 PM to 11:59 PM)
+                    # End is at the end time (e.g., 3:00 AM next day)
+                    end_datetime = datetime.combine(utc_date, end) + timedelta(days=1)
+                    end_utc = end_datetime.replace(tzinfo=utc_tz)
+                    remaining_seconds = (end_utc - utc_now).total_seconds()
+                    remaining = self.format_time_remaining(remaining_seconds)
+                else:
+                    # Time is in the second part (e.g., 12:00 AM to 3:00 AM)
+                    end_datetime = datetime.combine(utc_date, end)
+                    end_utc = end_datetime.replace(tzinfo=utc_tz)
+                    remaining_seconds = (end_utc - utc_now).total_seconds()
+                    remaining = self.format_time_remaining(remaining_seconds)
             else:
-                remaining = "0m"
+                # Normal period
+                if utc_time <= end:
+                    remaining_seconds = self.time_to_seconds(end) - self.time_to_seconds(utc_time)
+                    remaining = self.format_time_remaining(remaining_seconds)
+                else:
+                    remaining = "0m"
+        else:
+            # In NORMAL - show time until next VALLEY
+            next_valley = self.find_next_valley_utc(utc_time, utc_day, utc_date)
+            if next_valley:
+                period, days_ahead = next_valley
+                period_start = period['start']
+                period_end = period['end']
+                
+                # Determine when the next valley starts
+                if period_start > period_end:
+                    # Valley crosses midnight
+                    # Start is today (or tomorrow)
+                    start_date = utc_date + timedelta(days=days_ahead)
+                    start_utc = datetime.combine(start_date, period_start)
+                    start_utc_aware = start_utc.replace(tzinfo=utc_tz)
+                    time_until = start_utc_aware - utc_now
+                    remaining = self.format_time_remaining(time_until.total_seconds())
+                else:
+                    start_date = utc_date + timedelta(days=days_ahead)
+                    start_utc = datetime.combine(start_date, period_start)
+                    start_utc_aware = start_utc.replace(tzinfo=utc_tz)
+                    time_until = start_utc_aware - utc_now
+                    remaining = self.format_time_remaining(time_until.total_seconds())
         
         # Calculate next window
         next_window = "N/A"
-        if matched_period and current_time <= matched_period['end']:
-            # Current period is active, show when it ends
-            next_window = f"Ends at {matched_period['end'].strftime('%I:%M %p')}"
-        else:
-            # Find next period
-            next_period = self.find_next_period(current_time, current_day, current_date)
-            if next_period:
-                next_window = self.format_next_window(next_period, current_date, current_time)
+        
+        if is_valley:
+            # Show when VALLEY ends
+            if crosses_midnight:
+                if utc_time >= start:
+                    # Ends tomorrow at end time
+                    end_datetime = datetime.combine(utc_date, end) + timedelta(days=1)
+                else:
+                    # Ends today at end time
+                    end_datetime = datetime.combine(utc_date, end)
+                end_local = end_datetime.replace(tzinfo=utc_tz).astimezone(local_tz)
+                next_window = f"Ends at {end_local.strftime('%I:%M %p')}"
             else:
-                next_window = "No more periods today"
+                end_datetime = datetime.combine(utc_date, end)
+                end_local = end_datetime.replace(tzinfo=utc_tz).astimezone(local_tz)
+                next_window = f"Ends at {end_local.strftime('%I:%M %p')}"
+        else:
+            # Find next VALLEY
+            next_period = self.find_next_valley_utc(utc_time, utc_day, utc_date)
+            if next_period:
+                period, days_ahead = next_period
+                period_date = utc_date + timedelta(days=days_ahead)
+                period_utc = datetime.combine(period_date, period['start'])
+                period_local = period_utc.replace(tzinfo=utc_tz).astimezone(local_tz)
+                
+                # Use LOCAL date to determine Today/Tomorrow
+                if period_local.date() == local_date:
+                    next_window = f"Today at {period_local.strftime('%I:%M %p')}"
+                elif period_local.date() == local_date + timedelta(days=1):
+                    next_window = f"Tomorrow at {period_local.strftime('%I:%M %p')}"
+                else:
+                    day_name = period_local.strftime('%A')
+                    next_window = f"{day_name} at {period_local.strftime('%I:%M %p')}"
+            else:
+                next_window = "No VALLEY periods scheduled"
         
         # Build status
-        indicator = "🔴" if matched_period['type'] == 'peak' else "🟢"
+        indicator = "🔴" if is_valley else "🟢"
         state = matched_period['name']
         message = matched_period['message']
         
@@ -185,62 +256,45 @@ class ScheduleManager:
             "message": message,
             "remaining": remaining,
             "next_window": next_window,
-            "timezone": self.timezone_str,
-            "local_time": local_time.strftime('%I:%M %p'),
-            "local_timezone": local_tz_str
+            "utc_time": utc_now.strftime('%I:%M %p UTC'),
+            "local_time": local_now.strftime('%I:%M %p'),
+            "local_date": local_now.strftime('%B %d, %Y')
         }
     
-    def find_next_period(self, current_time, current_day, current_date):
-        """Find the next upcoming period"""
-        # Check today's remaining periods
+    def find_next_valley_utc(self, current_utc_time, current_utc_day, current_utc_date):
+        """Find next VALLEY period using UTC - only finds peak periods"""
         future_periods = []
-        for period in self.parsed_periods:
-            if current_day in period['days'] and period['start'] > current_time:
-                future_periods.append((period, 0))  # 0 = today
         
-        # Check tomorrow and beyond
+        # Check today - only VALLEY periods
+        for period in self.parsed_periods:
+            if period['type'] == 'peak':  # Only look for VALLEY
+                if current_utc_day in period['days'] and period['start'] > current_utc_time:
+                    future_periods.append((period, 0))
+        
+        # Check next 7 days
         if not future_periods:
-            days_ahead = 1
-            while days_ahead <= 7:  # Look up to 7 days ahead
-                next_date = current_date + timedelta(days=days_ahead)
+            for days_ahead in range(1, 8):
+                next_date = current_utc_date + timedelta(days=days_ahead)
                 next_day = next_date.strftime('%A').lower()
                 for period in self.parsed_periods:
-                    if next_day in period['days']:
-                        future_periods.append((period, days_ahead))
+                    if period['type'] == 'peak':  # Only look for VALLEY
+                        if next_day in period['days']:
+                            future_periods.append((period, days_ahead))
                 if future_periods:
                     break
-                days_ahead += 1
         
         if future_periods:
-            # Sort by days ahead, then by start time
             future_periods.sort(key=lambda x: (x[1], x[0]['start']))
             return future_periods[0]
         
         return None
     
-    def format_next_window(self, period_data, current_date, current_time):
-        """Format the next window description"""
-        period, days_ahead = period_data
-        
-        if days_ahead == 0:
-            # Today
-            return f"Today at {period['start'].strftime('%I:%M %p')}"
-        elif days_ahead == 1:
-            # Tomorrow
-            return f"Tomorrow at {period['start'].strftime('%I:%M %p')}"
-        else:
-            # Specific day
-            day_name = (current_date + timedelta(days=days_ahead)).strftime('%A')
-            return f"{day_name} at {period['start'].strftime('%I:%M %p')}"
-    
     @staticmethod
     def time_to_seconds(t):
-        """Convert time object to seconds since midnight"""
         return t.hour * 3600 + t.minute * 60 + t.second
     
     @staticmethod
     def format_time_remaining(seconds):
-        """Format seconds into human-readable string"""
         if seconds <= 0:
             return "0m"
         
@@ -254,16 +308,12 @@ class ScheduleManager:
         return f"{minutes}m"
 
 def main():
-    """Main function to output status"""
-    # Allow custom JSON path as argument
     json_path = None
     if len(sys.argv) > 1:
         json_path = sys.argv[1]
     
     manager = ScheduleManager(json_path)
     status = manager.get_current_status()
-    
-    # Output as JSON
     print(json.dumps(status, indent=2))
 
 if __name__ == "__main__":

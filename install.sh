@@ -52,7 +52,7 @@ chmod +x "$INSTALL_DIR/run_indicator.sh"
 echo -e "${YELLOW}Creating desktop entry...${NC}"
 cat > "$HOME/.local/share/applications/valley-indicator.desktop" << EOF
 [Desktop Entry]
-Name=Valley Status Indicator
+Name=Deepseek Valley Status Indicator
 Comment=Time-based status indicator for XFCE panel
 Exec=$INSTALL_DIR/run_indicator.sh
 Icon=applications-system
