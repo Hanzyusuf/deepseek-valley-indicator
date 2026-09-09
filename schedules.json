@@ -4,7 +4,7 @@
     {
       "name": "VALLEY",
       "type": "peak",
-      "days": ["all"],
+      "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
       "start": "01:00 AM",
       "end": "04:00 AM",
       "message": "🔴 Peak hour - Avoid tokens"
@@ -12,7 +12,7 @@
     {
       "name": "VALLEY",
       "type": "peak",
-      "days": ["all"],
+      "days": ["monday", "tuesday", "wednesday", "thursday", "friday"],
       "start": "06:00 AM",
       "end": "10:00 AM",
       "message": "🔴 Peak hour - Avoid tokens"
@@ -25,6 +25,14 @@
       "end": "11:59 PM",
       "message": "🟢 Normal - Safe to proceed",
       "default": true
+    },
+    {
+      "name": "NORMAL",
+      "type": "safe",
+      "days": ["saturday", "sunday"],
+      "start": "00:00 AM",
+      "end": "11:59 PM",
+      "message": "🟢 Normal - Safe to proceed"
     }
   ]
 }
